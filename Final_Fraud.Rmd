@@ -1,0 +1,71 @@
+---
+title: "Final Project: Fraud"
+author: "Group 9"
+date: "2023-05-01"
+output: html_document
+---
+
+```{r, include=FALSE} 
+rm(list = ls())
+library(tidyverse)
+library(lubridate)
+library(forcats)
+library(RColorBrewer)
+```
+
+
+
+```{r}
+fraudTest <- read.csv("class_data/fraudTest.csv")
+
+frauds <- filter(fraudTest,is_fraud==1)
+
+not_frauds <- filter(fraudTest,is_fraud==0)
+
+str(fraudTest)
+# str(frauds)
+# str(not_frauds)
+```
+
+## Which jobs result in the highest fraudulent amount spent?
+
+We created a new data frame called 'frauds_20', which shows the top 20 jobs, sorted by greatest 'amt_sum', or fraudulent amount sum. 
+
+We started by grouping our 'frauds' data frame seen above by job, then using the summarize() function to create our amt_sum variable, then then the arrange() function to order our jobs from greatest to least. 
+
+
+```{r setup, echo=FALSE}
+frauds_20 = frauds %>% 
+  group_by(job) %>% 
+  summarize(amt_sum = sum(amt, na.rm = T)) %>%
+  arrange(desc(amt_sum)) %>% 
+  head(20)
+
+frauds_20 = frauds_20 %>% 
+  mutate(job2 = reorder(job, amt_sum, na.rm = TRUE, decreasing = FALSE))
+
+ggplot(data = frauds_20)+
+  geom_col(aes(x = job2, y = amt_sum))+
+  coord_flip()+
+  labs(x = "Top 20 Professions", y = "Fraudulent Amount Spent (USD)")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots Title
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
