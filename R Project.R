@@ -30,17 +30,6 @@ cc <- mutate(cc,
              DOB = dmy(dob))
 cc
 
-#graphing state and amount that was transacted during frauds - 
-cc <- filter(cc,is_fraud==1)
-fraud_by_state <- cc %>% group_by(state) %>%
-  summarise(Sum=sum(amt)) %>% arrange(desc(Sum))
-
-ggplot(data=fraud_by_state)+
-  geom_col(aes(x=reorder(state,Sum), y=Sum, fill=Sum))+
-  coord_flip()+
-  labs(x="State",y="Amount of Fraud ($)")+
-  scale_fill_gradientn(colors=c("Blue","Red")) 
-
 ################################################################################
 ################################################################################
 ################################################################################
