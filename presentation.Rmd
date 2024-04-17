@@ -1,0 +1,243 @@
+**Analyzing Credit Card Fraud: A Case Study of Transactions from 2019-2020**
+---
+This research project aims to analyze a simulated credit card transaction dataset containing legitimate and fraudulent transactions from January 2019 to December 2020. The dataset includes credit card transactions made by 1000 customers with 800 merchants.
+---
+
+Here’s some code
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+#reading in the csv file - 
+data = read.csv(choose.files(), header = T)
+```
+
+```{r}
+#DATA CLEANING - 
+#checking for any missing values in the entire dataframe - 
+sum(is.na(data))
+#there are no missing values
+#:)
+```
+```{r}
+#1. converting trans_date_trans_time from a character variable to a datetime variable - for this we will be 
+#creating a new variable tr_datetime that will contain said datetime variable.
+data <- mutate(data,
+             tr_datetime = dmy_hm(trans_date_trans_time))
+
+#2. converting dob from a character variable to a date variable- for this we will be 
+#creating a new variable DOB that will contain the date variable.
+data <- mutate(data,
+             DOB = dmy(dob))
+```
+
+How do demographics effect fraud credit card transactions? 
+
+Age v/s Amt graph - 
+```{r}
+# Get current date
+current_date <- as.Date(Sys.time())
+
+#Calculate age based on birthdate - 
+#convert DOB column to yyyy-mm-dd format-
+data$DOB <- as.Date(data$DOB, format = "%Y-%m-%d")  
+
+#creating a new variable called age that stores the ages of everyone- 
+data$age <- as.numeric(format(current_date, "%Y")) - as.numeric(format(data$DOB, "%Y"))  
+
+#Finding the minimum and the maximum age to see the range in the ages of the people:
+min <- min(data$age)
+min
+
+max <- max(data$age)
+max
+
+#the min and max ages are 21 and 99 respectively. so, the breaks were made according 
+#to that.
+#categorizing the ages: 
+data <- data %>% mutate(age_category = cut(age, breaks = c(20, 40, 60, 80, 100),
+                                       labels = c("20-40", "40-60",
+                                                  "60-80", "80-100")))
+
+
+#graphing age vs amt graph - 
+data <- filter(data,is_fraud==1)
+
+fraud_by_age <- data %>% group_by(age_category) %>%
+  summarise(Sum=sum(amt)/1000)
+
+ggplot(data=fraud_by_age)+
+  geom_point(aes(x= age_category, y=Sum, fill=Sum))+
+  labs(x="age",y="Amount ($) in intervals of 1000") 
+
+#from the graph, we can conclude that the people who have fallen into a 
+#fraud are from the age group of 40-60 and they have lost approx. 
+```
+```{r}
+##Analyzing how gender affects the amount of frauds
+#Summarise and group by gender
+
+data <- filter(data,is_fraud==1)
+
+fraud_by_gender <- data %>% group_by(gender) %>%
+  summarise(Sum=sum(amt/1000))
+
+   str(fraud_by_gender)
+
+#boxplot of fraud and Sum of amt
+ggplot(data = data) +
+  geom_boxplot(aes(x = gender, y = amt)) +
+  labs(x = "Gender", y = "Amount", title = "Gender and Amount")
+
+```
+
+TRENDS IN FRAUDULENT TRANSACTIONS
+
+cyclicity - how do fraudulent transactions distribute on the temporal spectrum?
+is there an hourly, monthly, or seasonal trend?
+
+
+```{r}
+#HOURLY TREND:
+data$hour <- factor(format(data$tr_datetime, "%H"), levels = sprintf("%02d", 0:23))
+
+fraud_fraudTest <- data %>%
+  filter(is_fraud == 1)
+
+ggplot(data = fraud_fraudTest, aes(x = hour, fill = factor(is_fraud))) +
+  geom_bar(position = "dodge", show.legend = FALSE) +
+  scale_fill_manual(values = c("#E69F00"), name = "Type", labels = c("Fraud")) +
+  labs(x = "Time (Hour) in a Day", y = "Count") +
+  theme_minimal() +
+  scale_x_discrete(limits = sprintf("%02d", seq(0, 23, 1)), labels = sprintf("%02d", seq(0, 23, 1)))
+
+#The results from the graph are interesting! Most fraud cases happen from 10:00 p.m. 
+#to 11 p.m. 
+```
+
+```{r}
+#WEEKLY TREND:
+
+data$day <- wday(data$tr_datetime)
+
+data$day <- factor(data$day, levels = 1:7, labels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+fraud_fraudTest <- data %>% 
+  filter(is_fraud == 1)
+
+ggplot(data = fraud_fraudTest, aes(x = day)) +
+  geom_bar(fill = "#E69F00", show.legend = FALSE) +
+  labs(x = "Day of Week", y = "Count", title = "Day of Week vs Fraud") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Majority of the fraudulent transactions tend to happen on Mondays.
+```
+
+```{r}
+#MONTHLY TRANSACTIONS:
+data$month <- month(data$tr_datetime)
+
+fraud_fraudTest <- data %>%
+  filter(is_fraud == 1)
+
+ggplot(fraud_fraudTest, aes(x = factor(month))) +
+  geom_bar(fill = "#E69F00", show.legend = FALSE) +
+  labs(x = "Month", y = "Count", title = "Month vs Fraud") +
+  scale_x_discrete(labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#From the graph, we can tell that fraudulent transactions peak around March - May.
+```
+
+---
+Next, let's take a look at what states are most affected by frauds.
+---
+
+```{r}
+frauds <- filter(data,is_fraud==1)
+#Creates a dataset that is of cases of fraud
+fraud_by_state <- frauds %>% group_by(state) %>%
+  summarise(Sum=sum(amt), Freq=n(), Avg=Sum/Freq) %>% arrange(state)
+#creates state data, including total amount, freq, and average fraud.
+ggplot(data=fraud_by_state)+
+  geom_col(aes(x=reorder(state,Sum), y=Sum, fill=Sum))+
+  coord_flip()+
+  labs(x="State",y="Amount of Fraud ($)")+
+  scale_fill_gradientn(colors=c("Blue","Red"))+
+  ggtitle("Amount of Fraud in US States")
+
+```
+```{r}
+cc_by_state <- data %>% group_by(state) %>%
+  summarise(Total=sum(amt)/1000, Count=n()) %>% arrange(state)
+```
+
+```{r}
+library(ggmap)
+library(maps)
+library(mapdata)
+library(dplyr)
+```
+
+```{r}
+#allows for mapping
+States <- map_data("state")
+#map data for states
+By_state <- full_join(cc_by_state,fraud_by_state,by=join_by(state))
+#joins my two state datasets together
+By_state <- By_state[-c(1,8,9),]
+#gets rid of AK, HI, DC as we don't have maping info
+```
+
+```{r}
+By_state <- By_state %>% mutate(Percent= Sum/Total/1000*100,
+                                Fraud_Percent=(Freq/Count)*100)
+#creates the percent and fraud percentage column 
+By_state <- By_state %>% mutate(region=tolower(state.name[match(state,state.abb)]))
+#create region to make it possible to join
+States2 <- full_join(States,By_state,by=join_by(region))
+#joins the two datasets together
+States2["Sum"][is.na(States2["Sum"])] <- 0
+States2["Percent"][is.na(States2["Percent"])] <- 0
+States2["Avg"][is.na(States2["Avg"])] <- 0
+States2["Freq"][is.na(States2["Freq"])] <- 0
+States2["Total"][is.na(States2["Total"])] <- 0
+States2["Count"][is.na(States2["Count"])] <- 0
+States2["Fraud_Percent"][is.na(States2["Fraud_Percent"])] <- 0
+#puts in zeros for anydata we are missing
+```
+
+```{r}
+usa <- map_data("usa")
+#download map data for USA
+gg1<- ggplot()+
+  geom_polygon(data = usa, aes(x=long,y=lat, group=group),fill="white",color="black")+
+  coord_fixed(1.3)
+#creates function to plot USA data
+gg1
+```
+
+```{r}
+#plots by state how much spending is Fraud
+ggplot(data=States2,aes(x=long,y=lat,group=group))+
+  geom_polygon(aes(fill=Sum),color="black")+
+  scale_fill_gradientn("Sum of Fraud",colors =c("Yellow","Red"))+
+  ggtitle("Fraud in the US")+
+  labs(x="Longitude",y="Latitude")
+```
+
+```{r}
+lower_48_fraud <- frauds %>% filter(long>=-130)
+lower_48_cc <- data %>% filter(long>=-130)
+#gets rid of data outside the lower 48
+gg1+
+  geom_point(data=lower_48_fraud, aes(x=long,y=lat), color="black", size=.5)+
+  labs(x="Longitude",y="Latitude")+
+  ggtitle("CC Fraud Location in US")
+```
+
+
